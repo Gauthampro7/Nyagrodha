@@ -10,7 +10,68 @@ public static partial class SeedData
     /// </summary>
     public static IReadOnlyList<(string Name, string Country, double Lat, double Lon, string TimeZone)> GetCities()
     {
+        // Prefer loading from an external CSV if available so the
+        // location database can scale to tens of thousands of rows
+        // without bloating the assembly.
+        var fromCsv = TryLoadFromCsv();
+        if (fromCsv.Count > 0)
+            return fromCsv;
+
+        // Fallback: a small built-in list so the app still works
+        // out-of-the-box even if the CSV is missing.
         return Cities;
+    }
+
+    /// <summary>
+    /// Attempts to load cities from a CSV file named
+    /// "world_cities_nyagrodha.csv" located next to the executable.
+    /// Expected columns (header row, order):
+    /// Name,Country,Latitude,Longitude,TimeZone
+    /// </summary>
+    private static IReadOnlyList<(string Name, string Country, double Lat, double Lon, string TimeZone)> TryLoadFromCsv()
+    {
+        try
+        {
+            var baseDir = AppContext.BaseDirectory;
+            var path = Path.Combine(baseDir, "world_cities_nyagrodha.csv");
+            if (!File.Exists(path))
+                return Array.Empty<(string, string, double, double, string)>();
+
+            var list = new List<(string, string, double, double, string)>(capacity: 16_000);
+            using var reader = new StreamReader(path);
+
+            // Skip header
+            _ = reader.ReadLine();
+            while (!reader.EndOfStream)
+            {
+                var line = reader.ReadLine();
+                if (string.IsNullOrWhiteSpace(line))
+                    continue;
+
+                var parts = line.Split(',');
+                if (parts.Length < 5)
+                    continue;
+
+                if (!double.TryParse(parts[2], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var lat))
+                    continue;
+                if (!double.TryParse(parts[3], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var lon))
+                    continue;
+
+                var name = parts[0].Trim();
+                var country = parts[1].Trim();
+                var tz = parts[4].Trim();
+                if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(country) || string.IsNullOrEmpty(tz))
+                    continue;
+
+                list.Add((name, country, lat, lon, tz));
+            }
+
+            return list;
+        }
+        catch
+        {
+            return Array.Empty<(string, string, double, double, string)>();
+        }
     }
 
     private static readonly IReadOnlyList<(string Name, string Country, double Lat, double Lon, string TimeZone)> Cities = new List<(string, string, double, double, string)>
