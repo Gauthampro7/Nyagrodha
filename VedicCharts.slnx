@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="VedicCharts.Core/VedicCharts.Core.csproj" />
+  <Project Path="VedicCharts/VedicCharts.csproj" />
+</Solution>
