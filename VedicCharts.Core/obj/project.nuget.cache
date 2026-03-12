@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "6Zm4hwUiBj8=",
+  "dgSpecHash": "r9bqdp010Lc=",
   "success": true,
-  "projectFilePath": "C:\\Users\\gauth\\mypanchang\\vedic-astro-app\\VedicCharts.Core\\VedicCharts.Core.csproj",
+  "projectFilePath": "C:\\Users\\gauth\\vedic-astro-app\\VedicCharts.Core\\VedicCharts.Core.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\gauth\\.nuget\\packages\\bytesize\\2.1.1\\bytesize.2.1.1.nupkg.sha512",
     "C:\\Users\\gauth\\.nuget\\packages\\google.apis\\1.51.0\\google.apis.1.51.0.nupkg.sha512",
@@ -121,9 +121,9 @@
     "C:\\Users\\gauth\\.nuget\\packages\\system.xml.readerwriter\\4.3.0\\system.xml.readerwriter.4.3.0.nupkg.sha512",
     "C:\\Users\\gauth\\.nuget\\packages\\system.xml.xdocument\\4.3.0\\system.xml.xdocument.4.3.0.nupkg.sha512",
     "C:\\Users\\gauth\\.nuget\\packages\\vedastro.library\\1.2.0\\vedastro.library.1.2.0.nupkg.sha512",
-    "C:\\Users\\gauth\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\8.0.24\\microsoft.aspnetcore.app.ref.8.0.24.nupkg.sha512",
     "C:\\Users\\gauth\\.nuget\\packages\\microsoft.netcore.app.ref\\8.0.24\\microsoft.netcore.app.ref.8.0.24.nupkg.sha512",
-    "C:\\Users\\gauth\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\8.0.24\\microsoft.windowsdesktop.app.ref.8.0.24.nupkg.sha512"
+    "C:\\Users\\gauth\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\8.0.24\\microsoft.windowsdesktop.app.ref.8.0.24.nupkg.sha512",
+    "C:\\Users\\gauth\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\8.0.24\\microsoft.aspnetcore.app.ref.8.0.24.nupkg.sha512"
   ],
   "logs": []
 }

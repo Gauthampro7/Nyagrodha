@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "cbylou1JHFE=",
+  "dgSpecHash": "D+eIPnMWe2Q=",
   "success": true,
-  "projectFilePath": "C:\\Users\\gauth\\mypanchang\\vedic-astro-app\\VedicCharts\\VedicCharts.csproj",
+  "projectFilePath": "C:\\Users\\gauth\\vedic-astro-app\\VedicCharts\\VedicCharts.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\gauth\\.nuget\\packages\\bytesize\\2.1.1\\bytesize.2.1.1.nupkg.sha512",
     "C:\\Users\\gauth\\.nuget\\packages\\google.apis\\1.51.0\\google.apis.1.51.0.nupkg.sha512",

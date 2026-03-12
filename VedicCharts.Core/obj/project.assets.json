@@ -6346,11 +6346,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\gauth\\mypanchang\\vedic-astro-app\\VedicCharts.Core\\VedicCharts.Core.csproj",
+      "projectUniqueName": "C:\\Users\\gauth\\vedic-astro-app\\VedicCharts.Core\\VedicCharts.Core.csproj",
       "projectName": "VedicCharts.Core",
-      "projectPath": "C:\\Users\\gauth\\mypanchang\\vedic-astro-app\\VedicCharts.Core\\VedicCharts.Core.csproj",
+      "projectPath": "C:\\Users\\gauth\\vedic-astro-app\\VedicCharts.Core\\VedicCharts.Core.csproj",
       "packagesPath": "C:\\Users\\gauth\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\gauth\\mypanchang\\vedic-astro-app\\VedicCharts.Core\\obj\\",
+      "outputPath": "C:\\Users\\gauth\\vedic-astro-app\\VedicCharts.Core\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

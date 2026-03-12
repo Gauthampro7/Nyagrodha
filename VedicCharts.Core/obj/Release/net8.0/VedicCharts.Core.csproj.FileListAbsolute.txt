@@ -1,0 +1,13 @@
+C:\Users\gauth\vedic-astro-app\VedicCharts.Core\bin\Release\net8.0\VedicCharts.Core.deps.json
+C:\Users\gauth\vedic-astro-app\VedicCharts.Core\bin\Release\net8.0\VedicCharts.Core.dll
+C:\Users\gauth\vedic-astro-app\VedicCharts.Core\bin\Release\net8.0\VedicCharts.Core.pdb
+C:\Users\gauth\vedic-astro-app\VedicCharts.Core\obj\Release\net8.0\VedicCharts.Core.csproj.AssemblyReference.cache
+C:\Users\gauth\vedic-astro-app\VedicCharts.Core\obj\Release\net8.0\VedicCharts.Core.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\gauth\vedic-astro-app\VedicCharts.Core\obj\Release\net8.0\VedicCharts.Core.AssemblyInfoInputs.cache
+C:\Users\gauth\vedic-astro-app\VedicCharts.Core\obj\Release\net8.0\VedicCharts.Core.AssemblyInfo.cs
+C:\Users\gauth\vedic-astro-app\VedicCharts.Core\obj\Release\net8.0\VedicCharts.Core.csproj.CoreCompileInputs.cache
+C:\Users\gauth\vedic-astro-app\VedicCharts.Core\obj\Release\net8.0\VedicCharts.Core.sourcelink.json
+C:\Users\gauth\vedic-astro-app\VedicCharts.Core\obj\Release\net8.0\VedicCharts.Core.dll
+C:\Users\gauth\vedic-astro-app\VedicCharts.Core\obj\Release\net8.0\refint\VedicCharts.Core.dll
+C:\Users\gauth\vedic-astro-app\VedicCharts.Core\obj\Release\net8.0\VedicCharts.Core.pdb
+C:\Users\gauth\vedic-astro-app\VedicCharts.Core\obj\Release\net8.0\ref\VedicCharts.Core.dll

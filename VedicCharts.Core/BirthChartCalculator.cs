@@ -5,6 +5,11 @@ namespace VedicCharts.Core;
 /// </summary>
 public static class BirthChartCalculator
 {
+    private static readonly string[] DefaultBodyOrder =
+    {
+        "Sun","Moon","Mars","Mercury","Jupiter","Venus","Saturn","Rahu","Ketu"
+    };
+
     /// <summary>
     /// Computes the birth chart for the given local date/time and location.
     /// </summary>
@@ -25,8 +30,7 @@ public static class BirthChartCalculator
     {
         // When a supported ayanamsa is selected, use Swiss Ephemeris so the selection actually changes the result.
         var swissResult = SwissEphCalculator.Calculate(birthDate, (birthTime.Hours, birthTime.Minutes, birthTime.Seconds), latitude, longitude, timeZoneOffsetHours, ayanamsaId);
-        if (swissResult != null)
-            return swissResult;
+        if (swissResult != null) return swissResult;
 
         // Fallback: VedAstro (uses its default ayanamsa, typically Lahiri)
         string offsetStr = FormatTimeZoneOffset(timeZoneOffsetHours);
@@ -66,6 +70,81 @@ public static class BirthChartCalculator
         return result;
     }
 
+    /// <summary>
+    /// Computes a house-based chart data structure for rendering North/South style charts for a given divisional chart id.
+    /// Houses are computed using whole-sign houses based on Lagna in the selected divisional chart.
+    /// </summary>
+    public static VedicChartData CalculateChartData(
+        string chartTypeId,
+        DateOnly birthDate,
+        (int Hours, int Minutes, int Seconds) birthTime,
+        double latitude,
+        double longitude,
+        double timeZoneOffsetHours,
+        string? ayanamsaId = null)
+    {
+        // Prefer Swiss Ephemeris path so ayanamsa selection takes effect.
+        var raw = SwissEphCalculator.CalculateRaw(birthDate, (birthTime.Hours, birthTime.Minutes, birthTime.Seconds),
+            latitude, longitude, timeZoneOffsetHours, ayanamsaId);
+
+        if (raw == null)
+        {
+            // Fallback: VedAstro (uses its default ayanamsa, typically Lahiri)
+            string offsetStr = FormatTimeZoneOffset(timeZoneOffsetHours);
+            string timeStr = $"{birthTime.Hours:D2}:{birthTime.Minutes:D2} {birthDate.Day:D2}/{birthDate.Month:D2}/{birthDate.Year} {offsetStr}";
+
+            // VedAstro GeoLocation is (name, LONGITUDE, latitude) - order matters
+            var geoLocation = new VedAstro.Library.GeoLocation("", longitude, latitude);
+            var time = new VedAstro.Library.Time(timeStr, geoLocation);
+
+            var planetList = VedAstro.Library.AstronomicalCalculator.GetAllPlanetLongitude(time);
+            var dict = planetList.ToDictionary(p => p.GetPlanetName().ToString(), p => p.GetPlanetLongitude().TotalDegrees, StringComparer.OrdinalIgnoreCase);
+            dict["Rahu"] = planetList.First(p => p.GetPlanetName() == VedAstro.Library.PlanetName.Rahu).GetPlanetLongitude().TotalDegrees;
+            dict["Ketu"] = planetList.First(p => p.GetPlanetName() == VedAstro.Library.PlanetName.Ketu).GetPlanetLongitude().TotalDegrees;
+
+            var house1 = VedAstro.Library.AstronomicalCalculator.GetHouse(VedAstro.Library.HouseName.House1, time);
+            raw = new SwissEphCalculator.RawSiderealChart(house1.GetMiddleLongitude().TotalDegrees, dict);
+        }
+
+        // Compute divisional Lagna sign
+        var lagnaDivSign = VargaHelper.LongitudeToDivisionalSign(raw.LagnaLongitude, chartTypeId);
+        int lagnaIndex = VargaHelper.SignIndex(lagnaDivSign.SignName);
+
+        // Compute divisional planet signs
+        var planetDivSigns = raw.BodyLongitudes
+            .Where(kv => DefaultBodyOrder.Contains(kv.Key, StringComparer.OrdinalIgnoreCase))
+            .ToDictionary(kv => NormalizeBodyName(kv.Key),
+                kv => VargaHelper.LongitudeToDivisionalSign(kv.Value, chartTypeId).SignName,
+                StringComparer.OrdinalIgnoreCase);
+
+        // Build whole-sign houses starting from divisional Lagna sign
+        var houseBodies = new List<List<string>>(capacity: 12);
+        var houseSigns = new List<string>(capacity: 12);
+        for (int i = 0; i < 12; i++)
+        {
+            int signIdx = (lagnaIndex + i) % 12;
+            string signName = VargaHelper.SignNameFromIndex(signIdx);
+            houseSigns.Add(signName);
+            houseBodies.Add(new List<string>());
+        }
+
+        // Assign bodies to houses by sign match
+        foreach (var body in DefaultBodyOrder)
+        {
+            if (!planetDivSigns.TryGetValue(body, out var signName)) continue;
+            int idx = houseSigns.FindIndex(s => s.Equals(signName, StringComparison.OrdinalIgnoreCase));
+            if (idx < 0) continue;
+            houseBodies[idx].Add(ShortBody(body));
+        }
+
+        // Ensure output lists are immutable
+        var normalizedHouses = new List<VedicChartHouse>(capacity: 12);
+        for (int i = 0; i < 12; i++)
+            normalizedHouses.Add(new VedicChartHouse(i + 1, houseSigns[i], houseBodies[i].ToList()));
+
+        return new VedicChartData(chartTypeId, normalizedHouses);
+    }
+
     private static string FormatTimeZoneOffset(double timeZoneOffsetHours)
     {
         // Handle fractional hours (e.g. 5.5 = IST +05:30, -5.5 = -05:30)
@@ -85,4 +164,24 @@ public static class BirthChartCalculator
         var (signName, degreeInSign) = ZodiacHelper.LongitudeToZodiac(longitude);
         return new BirthChartEntry(bodyName, signName, degreeInSign);
     }
+
+    private static string NormalizeBodyName(string body) => body.Trim() switch
+    {
+        "TrueNode" => "Rahu",
+        _ => body.Trim()
+    };
+
+    private static string ShortBody(string body) => body switch
+    {
+        "Sun" => "Su",
+        "Moon" => "Mo",
+        "Mars" => "Ma",
+        "Mercury" => "Me",
+        "Jupiter" => "Ju",
+        "Venus" => "Ve",
+        "Saturn" => "Sa",
+        "Rahu" => "Ra",
+        "Ketu" => "Ke",
+        _ => body
+    };
 }

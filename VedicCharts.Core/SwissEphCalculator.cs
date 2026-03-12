@@ -76,6 +76,64 @@ internal static class SwissEphCalculator
         return result;
     }
 
+    public sealed record RawSiderealChart(
+        double LagnaLongitude,
+        IReadOnlyDictionary<string, double> BodyLongitudes);
+
+    public static RawSiderealChart? CalculateRaw(
+        DateOnly birthDate,
+        (int H, int M, int S) birthTime,
+        double latitude,
+        double longitude,
+        double timeZoneOffsetHours,
+        string? ayanamsaId)
+    {
+        int? sidMode = GetSidMode(ayanamsaId);
+        if (!sidMode.HasValue) return null;
+
+        double jdUt = LocalToJulianUt(birthDate, birthTime.H, birthTime.M, birthTime.S, timeZoneOffsetHours);
+        var swissEph = new SwissEphNet.SwissEph();
+
+        try
+        {
+            swissEph.swe_set_sid_mode(sidMode.Value, 0, 0);
+        }
+        catch
+        {
+            return null;
+        }
+
+        int iflag = SEFLG_SIDEREAL;
+        var xx = new double[6];
+        string serr = "";
+
+        var cusps = new double[13];
+        var ascmc = new double[10];
+        int hret = swissEph.swe_houses_ex(jdUt, iflag, latitude, longitude, 'P', cusps, ascmc);
+        if (hret < 0) return null;
+
+        var dict = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+
+        int[] planets = { SE_SUN, SE_MOON, SE_MARS, SE_MERCURY, SE_JUPITER, SE_VENUS, SE_SATURN };
+        string[] names = { "Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn" };
+        for (int i = 0; i < planets.Length; i++)
+        {
+            if (swissEph.swe_calc_ut(jdUt, planets[i], iflag, xx, ref serr) < 0) return null;
+            dict[names[i]] = xx[0];
+        }
+
+        if (swissEph.swe_calc_ut(jdUt, SE_TRUE_NODE, iflag, xx, ref serr) < 0) return null;
+        double rahuLon = xx[0];
+        dict["Rahu"] = rahuLon;
+        double ketuLon = (rahuLon + 180) % 360;
+        if (ketuLon < 0) ketuLon += 360;
+        dict["Ketu"] = ketuLon;
+
+        return new RawSiderealChart(
+            LagnaLongitude: cusps[1],
+            BodyLongitudes: dict);
+    }
+
     private static double LocalToJulianUt(DateOnly d, int h, int min, int sec, double offsetHours)
     {
         double totalHours = h + min / 60.0 + sec / 3600.0 - offsetHours;
