@@ -91,20 +91,20 @@ public partial class MainWindow : Window
     {
         if (!BirthDatePicker.SelectedDate.HasValue)
         {
-            MessageBox.Show("Please select a birth date.", "Vedic Charts", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show("Please select a birth date.", "Nyagrodha", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
         var date = DateOnly.FromDateTime(BirthDatePicker.SelectedDate.Value);
 
         if (!TryParseTime(BirthTimeBox.Text?.Trim() ?? "", out int hours, out int minutes))
         {
-            MessageBox.Show("Please enter birth time as HH:mm (24-hour).", "Vedic Charts", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show("Please enter birth time as HH:mm (24-hour).", "Nyagrodha", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
         if (_selectedPlace == null)
         {
-            MessageBox.Show("Please search and select a birth place.", "Vedic Charts", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show("Please search and select a birth place.", "Nyagrodha", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -147,7 +147,7 @@ public partial class MainWindow : Window
         }
         catch (System.Exception ex)
         {
-            MessageBox.Show("Calculation failed: " + ex.Message, "Vedic Charts", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show("Calculation failed: " + ex.Message, "Nyagrodha", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -179,7 +179,7 @@ public partial class MainWindow : Window
             var dlg = new OpenFileDialog
             {
                 Title = "Open birth data",
-                Filter = "Vedic birth data (*.json)|*.json|All files (*.*)|*.*",
+                Filter = "Nyagrodha birth data (*.ny)|*.ny|JSON (*.json)|*.json|All files (*.*)|*.*",
                 CheckFileExists = true,
                 Multiselect = false,
             };
@@ -236,7 +236,7 @@ public partial class MainWindow : Window
         }
         catch (System.Exception ex)
         {
-            MessageBox.Show("Open failed: " + ex.Message, "Vedic Charts", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show("Open failed: " + ex.Message, "Nyagrodha", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -248,10 +248,10 @@ public partial class MainWindow : Window
             var dlg = new SaveFileDialog
             {
                 Title = "Save birth data",
-                Filter = "Vedic birth data (*.json)|*.json|All files (*.*)|*.*",
+                Filter = "Nyagrodha birth data (*.ny)|*.ny|All files (*.*)|*.*",
                 AddExtension = true,
-                DefaultExt = ".json",
-                FileName = "birth-data.json",
+                DefaultExt = ".ny",
+                FileName = "birth-data.ny",
                 OverwritePrompt = true,
             };
             if (dlg.ShowDialog(this) != true) return;
@@ -264,7 +264,7 @@ public partial class MainWindow : Window
         }
         catch (System.Exception ex)
         {
-            MessageBox.Show("Save failed: " + ex.Message, "Vedic Charts", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show("Save failed: " + ex.Message, "Nyagrodha", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 

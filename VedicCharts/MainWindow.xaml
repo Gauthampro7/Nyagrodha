@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:VedicCharts"
         xmlns:controls="clr-namespace:VedicCharts.Controls"
         mc:Ignorable="d"
-        Title="Vedic Birth Chart" Height="600" Width="700"
+        Title="Nyagrodha" Height="600" Width="700"
         MinHeight="500" MinWidth="600">
     <DockPanel LastChildFill="True">
         <Menu DockPanel.Dock="Top">

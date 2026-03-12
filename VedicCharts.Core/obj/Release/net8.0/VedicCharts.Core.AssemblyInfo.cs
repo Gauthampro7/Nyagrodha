@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("VedicCharts.Core")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+c899142e22e0a30eddb0028ae4f490808cdd95fe")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+8ddc1e883fcfa7a5e974df89ef9649c48dc9cd71")]
 [assembly: System.Reflection.AssemblyProductAttribute("VedicCharts.Core")]
 [assembly: System.Reflection.AssemblyTitleAttribute("VedicCharts.Core")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
