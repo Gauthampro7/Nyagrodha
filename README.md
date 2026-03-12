@@ -2,6 +2,8 @@
 
 **Nyagrodha** is a desktop application for generating and viewing Vedic (Jyotish) birth charts. It supports North Indian and South Indian chart styles and multiple divisional charts (vargas).
 
+> **Note:** Development is aggressively ongoing. There may be bugs; use at your own discretion and please report issues if you find them.
+
 ## Features
 
 - **Birth chart calculation** using Swiss Ephemeris (SwissEphNet) with Lahiri ayanamsa
