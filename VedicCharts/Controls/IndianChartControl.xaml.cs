@@ -1,8 +1,10 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using VedicCharts.Core;
 
 namespace VedicCharts.Controls;
 
@@ -53,10 +55,37 @@ public partial class IndianChartControl : UserControl
 
     private void UpdateView()
     {
-        var houses = Houses ?? [];
+        var houses = Houses ?? Array.Empty<HouseCell>();
         View = ChartStyle == ChartStyle.North
             ? NorthChartView.FromHouses(houses)
             : SouthChartView.FromHouses(houses);
+    }
+
+    internal static string FormatBodies(HouseCell house)
+    {
+        if (house.Bodies.Count == 0)
+            return house.HouseNumber == 1 ? "Lg" : string.Empty;
+
+        var parts = house.Bodies
+            .Select(b => $"{b.ShortName} {FormatDegree(b.DegreeInSign)}");
+
+        var core = string.Join("  ", parts);
+        return house.HouseNumber == 1 ? $"Lg  {core}" : core;
+    }
+
+    private static string FormatDegree(double degreeInSign)
+    {
+        // Normalize and format as DD°MM'
+        var d = (int)Math.Floor(degreeInSign);
+        var minutesRaw = (degreeInSign - d) * 60.0;
+        var m = (int)Math.Round(minutesRaw);
+        if (m >= 60)
+        {
+            m -= 60;
+            d += 1;
+        }
+        d = ((d % 30) + 30) % 30;
+        return $"{d:00}°{m:00}'";
     }
 }
 
@@ -69,7 +98,7 @@ public enum ChartStyle
 public sealed record HouseCell(
     int HouseNumber,
     string SignName,
-    IReadOnlyList<string> Planets);
+    IReadOnlyList<VedicChartBody> Bodies);
 
 internal sealed class SouthChartView
 {
@@ -119,7 +148,7 @@ internal sealed class SouthChartView
             {
                 SignLabel = ShortSign(sign),
                 HouseLabel = $"H{house.HouseNumber}",
-                PlanetsText = house.HouseNumber == 1 ? "Lg " + string.Join(" ", house.Planets) : string.Join(" ", house.Planets),
+                PlanetsText = IndianChartControl.FormatBodies(house),
             });
         }
 
@@ -178,36 +207,53 @@ internal sealed class NorthChartView
 
     public static NorthChartView FromHouses(IReadOnlyList<HouseCell> houses)
     {
-        // House placement positions (approx) on a 420x420 canvas.
-        // These are tuned for readability; the diamond frame is drawn separately.
-        var positions = new Dictionary<int, (double X, double Y)>
+        // North Indian chart is sign-fixed like the South chart.
+        // We place signs in a conventional diamond layout and then
+        // attach the corresponding house/planets for each sign.
+        var signOrder = new[]
         {
-            [1] = (150, 20),
-            [2] = (270, 70),
-            [3] = (300, 175),
-            [4] = (270, 280),
-            [5] = (150, 330),
-            [6] = (30, 280),
-            [7] = (0, 175),
-            [8] = (30, 70),
-            [9] = (150, 110),
-            [10] = (220, 175),
-            [11] = (150, 240),
-            [12] = (80, 175),
+            "Aries","Taurus","Gemini","Cancer",
+            "Leo","Virgo","Libra","Scorpio",
+            "Sagittarius","Capricorn","Aquarius","Pisces"
         };
 
-        var view = new NorthChartView();
-        foreach (var house in houses.OrderBy(h => h.HouseNumber))
+        // Approximate positions for each sign on a 420x420 canvas.
+        var positions = new Dictionary<string, (double X, double Y)>(StringComparer.OrdinalIgnoreCase)
         {
-            if (!positions.TryGetValue(house.HouseNumber, out var pos)) continue;
+            ["Aries"] = (210, 20),        // top
+            ["Taurus"] = (310, 80),       // upper-right
+            ["Gemini"] = (360, 210),      // right
+            ["Cancer"] = (310, 330),      // lower-right
+            ["Leo"] = (210, 380),         // bottom
+            ["Virgo"] = (110, 330),       // lower-left
+            ["Libra"] = (60, 210),        // left
+            ["Scorpio"] = (110, 80),      // upper-left
+            ["Sagittarius"] = (210, 115), // inner top
+            ["Capricorn"] = (275, 210),   // inner right
+            ["Aquarius"] = (210, 305),    // inner bottom
+            ["Pisces"] = (145, 210),      // inner left
+        };
+
+        var bySign = houses
+            .GroupBy(h => h.SignName)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+        var view = new NorthChartView();
+        foreach (var sign in signOrder)
+        {
+            if (!positions.TryGetValue(sign, out var pos)) continue;
+            bySign.TryGetValue(sign, out var house);
+
+            var labelHouse = house?.HouseNumber.ToString() ?? "";
+            var planetsText = house is null ? "" : IndianChartControl.FormatBodies(house);
 
             view.Cells.Add(new NorthCellVm
             {
                 X = pos.X,
                 Y = pos.Y,
-                HouseLabel = $"H{house.HouseNumber}",
-                SignLabel = ShortSign(house.SignName),
-                PlanetsText = house.HouseNumber == 1 ? "Lg " + string.Join(" ", house.Planets) : string.Join(" ", house.Planets),
+                HouseLabel = string.IsNullOrEmpty(labelHouse) ? "" : $"H{labelHouse}",
+                SignLabel = ShortSign(sign),
+                PlanetsText = planetsText,
             });
         }
 

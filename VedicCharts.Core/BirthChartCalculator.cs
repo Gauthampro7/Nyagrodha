@@ -110,31 +110,32 @@ public static class BirthChartCalculator
         var lagnaDivSign = VargaHelper.LongitudeToDivisionalSign(raw.LagnaLongitude, chartTypeId);
         int lagnaIndex = VargaHelper.SignIndex(lagnaDivSign.SignName);
 
-        // Compute divisional planet signs
+        // Compute divisional planet signs and degrees within sign
         var planetDivSigns = raw.BodyLongitudes
             .Where(kv => DefaultBodyOrder.Contains(kv.Key, StringComparer.OrdinalIgnoreCase))
-            .ToDictionary(kv => NormalizeBodyName(kv.Key),
-                kv => VargaHelper.LongitudeToDivisionalSign(kv.Value, chartTypeId).SignName,
+            .ToDictionary(
+                kv => NormalizeBodyName(kv.Key),
+                kv => VargaHelper.LongitudeToDivisionalSign(kv.Value, chartTypeId),
                 StringComparer.OrdinalIgnoreCase);
 
         // Build whole-sign houses starting from divisional Lagna sign
-        var houseBodies = new List<List<string>>(capacity: 12);
+        var houseBodies = new List<List<VedicChartBody>>(capacity: 12);
         var houseSigns = new List<string>(capacity: 12);
         for (int i = 0; i < 12; i++)
         {
             int signIdx = (lagnaIndex + i) % 12;
             string signName = VargaHelper.SignNameFromIndex(signIdx);
             houseSigns.Add(signName);
-            houseBodies.Add(new List<string>());
+            houseBodies.Add(new List<VedicChartBody>());
         }
 
         // Assign bodies to houses by sign match
         foreach (var body in DefaultBodyOrder)
         {
-            if (!planetDivSigns.TryGetValue(body, out var signName)) continue;
-            int idx = houseSigns.FindIndex(s => s.Equals(signName, StringComparison.OrdinalIgnoreCase));
+            if (!planetDivSigns.TryGetValue(body, out var divSign)) continue;
+            int idx = houseSigns.FindIndex(s => s.Equals(divSign.SignName, StringComparison.OrdinalIgnoreCase));
             if (idx < 0) continue;
-            houseBodies[idx].Add(ShortBody(body));
+            houseBodies[idx].Add(new VedicChartBody(ShortBody(body), divSign.DegreeInSign));
         }
 
         // Ensure output lists are immutable

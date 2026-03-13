@@ -1,3 +1,6 @@
+using System.Globalization;
+using Microsoft.VisualBasic.FileIO;
+
 namespace VedicCharts.Core;
 
 /// <summary>
@@ -5,6 +8,11 @@ namespace VedicCharts.Core;
 /// </summary>
 public static partial class SeedData
 {
+    /// <summary>
+    /// True if the last call to <see cref="GetCities"/> used the external CSV source.
+    /// </summary>
+    public static bool UsedCsvLast { get; private set; }
+
     /// <summary>
     /// Returns a list of cities with coordinates and timezone for seeding the Places table.
     /// </summary>
@@ -15,10 +23,14 @@ public static partial class SeedData
         // without bloating the assembly.
         var fromCsv = TryLoadFromCsv();
         if (fromCsv.Count > 0)
+        {
+            UsedCsvLast = true;
             return fromCsv;
+        }
 
         // Fallback: a small built-in list so the app still works
         // out-of-the-box even if the CSV is missing.
+        UsedCsvLast = false;
         return Cities;
     }
 
@@ -33,34 +45,71 @@ public static partial class SeedData
         try
         {
             var baseDir = AppContext.BaseDirectory;
-            var path = Path.Combine(baseDir, "world_cities_nyagrodha.csv");
-            if (!File.Exists(path))
+
+            // Primary: next to the running executable (e.g. bin/Debug/net8.0-windows)
+            var primaryPath = Path.Combine(baseDir, "world_cities_nyagrodha.csv");
+
+            // Fallback: sibling net8.0 folder (where the initial script wrote the CSV)
+            string? candidate = null;
+            if (File.Exists(primaryPath))
+            {
+                candidate = primaryPath;
+            }
+            else
+            {
+                var parent = Directory.GetParent(baseDir)?.FullName;
+                if (!string.IsNullOrEmpty(parent))
+                {
+                    var alt = Path.Combine(parent, "net8.0", "world_cities_nyagrodha.csv");
+                    if (File.Exists(alt))
+                        candidate = alt;
+                }
+            }
+
+            if (candidate is null || !File.Exists(candidate))
                 return Array.Empty<(string, string, double, double, string)>();
 
-            var list = new List<(string, string, double, double, string)>(capacity: 16_000);
-            using var reader = new StreamReader(path);
+            var list = new List<(string, string, double, double, string)>(capacity: 32_000);
 
-            // Skip header
-            _ = reader.ReadLine();
-            while (!reader.EndOfStream)
+            using var parser = new TextFieldParser(candidate)
             {
-                var line = reader.ReadLine();
-                if (string.IsNullOrWhiteSpace(line))
+                TextFieldType = FieldType.Delimited,
+                Delimiters = new[] { "," },
+                HasFieldsEnclosedInQuotes = true,
+                TrimWhiteSpace = true
+            };
+
+            // Read header and discover column indices by name
+            var header = parser.ReadFields();
+            if (header is null)
+                return Array.Empty<(string, string, double, double, string)>();
+
+            int idxName = Array.FindIndex(header, h => string.Equals(h, "Name", StringComparison.OrdinalIgnoreCase));
+            int idxCountry = Array.FindIndex(header, h => string.Equals(h, "Country", StringComparison.OrdinalIgnoreCase) ||
+                                                         string.Equals(h, "Country_name", StringComparison.OrdinalIgnoreCase));
+            int idxLat = Array.FindIndex(header, h => string.Equals(h, "Latitude", StringComparison.OrdinalIgnoreCase));
+            int idxLon = Array.FindIndex(header, h => string.Equals(h, "Longitude", StringComparison.OrdinalIgnoreCase));
+            int idxTz = Array.FindIndex(header, h => string.Equals(h, "TimeZone", StringComparison.OrdinalIgnoreCase) ||
+                                                    string.Equals(h, "Timezone", StringComparison.OrdinalIgnoreCase));
+
+            if (idxName < 0 || idxCountry < 0 || idxLat < 0 || idxLon < 0 || idxTz < 0)
+                return Array.Empty<(string, string, double, double, string)>();
+
+            while (!parser.EndOfData)
+            {
+                var fields = parser.ReadFields();
+                if (fields is null || fields.Length <= Math.Max(Math.Max(idxLon, idxLat), idxTz))
                     continue;
 
-                var parts = line.Split(',');
-                if (parts.Length < 5)
-                    continue;
-
-                if (!double.TryParse(parts[2], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var lat))
-                    continue;
-                if (!double.TryParse(parts[3], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var lon))
-                    continue;
-
-                var name = parts[0].Trim();
-                var country = parts[1].Trim();
-                var tz = parts[4].Trim();
+                var name = fields[idxName].Trim();
+                var country = fields[idxCountry].Trim();
+                var tz = fields[idxTz].Trim();
                 if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(country) || string.IsNullOrEmpty(tz))
+                    continue;
+
+                if (!double.TryParse(fields[idxLat], NumberStyles.Float, CultureInfo.InvariantCulture, out var lat))
+                    continue;
+                if (!double.TryParse(fields[idxLon], NumberStyles.Float, CultureInfo.InvariantCulture, out var lon))
                     continue;
 
                 list.Add((name, country, lat, lon, tz));

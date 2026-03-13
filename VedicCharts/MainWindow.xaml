@@ -53,6 +53,7 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
@@ -65,6 +66,7 @@
                                      SelectionChanged="PlaceResultsList_SelectionChanged" DisplayMemberPath="DisplayText"/>
                             <TextBlock Grid.Row="2" Text="Coordinates:" VerticalAlignment="Center" Margin="0,0,8,0"/>
                             <TextBlock x:Name="CoordsText" Grid.Row="2" Grid.Column="1" VerticalAlignment="Center" Text="—" Foreground="Gray" TextWrapping="Wrap" />
+                            <TextBlock x:Name="LocationDbCue" Grid.Row="3" Grid.ColumnSpan="2" Margin="0,6,0,0" FontSize="11" Foreground="#888" Text="" />
                         </Grid>
                     </GroupBox>
 
@@ -96,7 +98,22 @@
                 <TabControl>
                     <TabItem Header="Chart">
                         <Grid>
-                            <Border BorderBrush="#22000000" BorderThickness="1" CornerRadius="6" Padding="8">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,4">
+                                <Button Content="Copy chart image"
+                                        Click="CopyChartImageButton_Click"
+                                        Padding="12,4"
+                                        Margin="0,0,8,0"/>
+                                <Button Content="Copy chart as text"
+                                        Click="CopyChartTextButton_Click"
+                                        Padding="12,4"/>
+                            </StackPanel>
+
+                            <Border Grid.Row="1" BorderBrush="#22000000" BorderThickness="1" CornerRadius="6" Padding="8">
                                 <controls:IndianChartControl x:Name="IndianChart"
                                                             ChartStyle="South" />
                             </Border>

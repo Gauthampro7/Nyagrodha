@@ -1,8 +1,12 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using Microsoft.Win32;
 using VedicCharts.Controls;
 using VedicCharts.Core;
@@ -58,6 +62,20 @@ public partial class MainWindow : Window
             PlaceResultsList.SelectedIndex = 0;
             _selectedPlace = list[0].Place;
             CoordsText.Text = $"{_selectedPlace.Latitude:F4}, {_selectedPlace.Longitude:F4} ({_selectedPlace.TimeZone})";
+        }
+
+        var placeCount = _places.Count();
+        if (SeedData.UsedCsvLast && placeCount > 1000)
+        {
+            LocationDbCue.Text = $"Extended database active ({placeCount:N0} locations)";
+        }
+        else if (placeCount > 0)
+        {
+            LocationDbCue.Text = $"Built-in location list ({placeCount:N0})";
+        }
+        else
+        {
+            LocationDbCue.Text = "";
         }
     }
 
@@ -170,6 +188,58 @@ public partial class MainWindow : Window
         PlaceResultsList.SelectedItem = null;
         _selectedPlace = null;
         CoordsText.Text = "—";
+    }
+
+    private void CopyChartImageButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            IndianChart.UpdateLayout();
+            if (IndianChart.ActualWidth <= 0 || IndianChart.ActualHeight <= 0)
+                return;
+
+            var width = (int)Math.Ceiling(IndianChart.ActualWidth);
+            var height = (int)Math.Ceiling(IndianChart.ActualHeight);
+
+            var rtb = new RenderTargetBitmap(
+                width,
+                height,
+                96, 96,
+                PixelFormats.Pbgra32);
+
+            rtb.Render(IndianChart);
+            Clipboard.SetImage(rtb);
+            MessageBox.Show("Chart image copied to clipboard.", "Nyagrodha", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("Copy chart image failed: " + ex.Message, "Nyagrodha", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void CopyChartTextButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (ChartListBox.ItemsSource is not IEnumerable<BirthChartEntry> entries)
+            {
+                MessageBox.Show("Create a chart first.", "Nyagrodha", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var sb = new StringBuilder();
+            foreach (var entry in entries)
+            {
+                sb.AppendLine(entry.ToString());
+            }
+
+            Clipboard.SetText(sb.ToString());
+            MessageBox.Show("Chart details copied as text.", "Nyagrodha", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("Copy chart text failed: " + ex.Message, "Nyagrodha", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
     private void OpenMenuItem_Click(object sender, RoutedEventArgs e)

@@ -96,11 +96,23 @@ public sealed class PlacesRepository : IDisposable
     }
 
     /// <summary>
-    /// Seed the database from the embedded cities CSV if the table is empty.
+    /// Seed the database from the embedded cities CSV.
+    /// If the table already exists but is "small" (less than 1,000 rows),
+    /// it will be cleared and upgraded to the larger dataset.
     /// </summary>
     public void SeedIfEmpty()
     {
-        if (Count() > 0) return;
+        var current = Count();
+        if (current >= 1000) return;
+
+        if (current > 0)
+        {
+            using var conn = new SqliteConnection(ConnectionString);
+            conn.Open();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "DELETE FROM Places";
+            cmd.ExecuteNonQuery();
+        }
         SeedFromEmbedded();
     }
 

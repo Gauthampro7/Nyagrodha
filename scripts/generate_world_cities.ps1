@@ -3,8 +3,9 @@ param(
 )
 
 if (-not $OutputPath -or [string]::IsNullOrWhiteSpace($OutputPath)) {
-    # Default: next to the running Nyagrodha executable (Debug build path)
-    $outputDir = Join-Path $PSScriptRoot "..\VedicCharts\bin\Debug\net8.0"
+    # Default: next to the running Nyagrodha executable (Debug build path).
+    # WPF targets net8.0-windows, so the exe lives under net8.0-windows.
+    $outputDir = Join-Path $PSScriptRoot "..\VedicCharts\bin\Debug\net8.0-windows"
     if (-not (Test-Path $outputDir)) {
         New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
     }
