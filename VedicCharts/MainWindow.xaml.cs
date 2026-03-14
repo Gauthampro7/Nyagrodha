@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -190,16 +191,16 @@ public partial class MainWindow : Window
         CoordsText.Text = "—";
     }
 
-    private void CopyChartImageButton_Click(object sender, RoutedEventArgs e)
+    private async void CopyChartImageButton_Click(object sender, RoutedEventArgs e)
     {
         try
         {
-            IndianChart.UpdateLayout();
-            if (IndianChart.ActualWidth <= 0 || IndianChart.ActualHeight <= 0)
+            ChartContainerBorder.UpdateLayout();
+            if (ChartContainerBorder.ActualWidth <= 0 || ChartContainerBorder.ActualHeight <= 0)
                 return;
 
-            var width = (int)Math.Ceiling(IndianChart.ActualWidth);
-            var height = (int)Math.Ceiling(IndianChart.ActualHeight);
+            var width = (int)Math.Ceiling(ChartContainerBorder.ActualWidth);
+            var height = (int)Math.Ceiling(ChartContainerBorder.ActualHeight);
 
             var rtb = new RenderTargetBitmap(
                 width,
@@ -207,23 +208,24 @@ public partial class MainWindow : Window
                 96, 96,
                 PixelFormats.Pbgra32);
 
-            rtb.Render(IndianChart);
+            rtb.Render(ChartContainerBorder);
             Clipboard.SetImage(rtb);
-            MessageBox.Show("Chart image copied to clipboard.", "Nyagrodha", MessageBoxButton.OK, MessageBoxImage.Information);
+            await ShowCopyStatusAsync("Chart image copied");
         }
         catch (Exception ex)
         {
-            MessageBox.Show("Copy chart image failed: " + ex.Message, "Nyagrodha", MessageBoxButton.OK, MessageBoxImage.Error);
+            await ShowCopyStatusAsync("Copy image failed", isError: true);
+            System.Diagnostics.Debug.WriteLine("Copy chart image failed: " + ex);
         }
     }
 
-    private void CopyChartTextButton_Click(object sender, RoutedEventArgs e)
+    private async void CopyChartTextButton_Click(object sender, RoutedEventArgs e)
     {
         try
         {
             if (ChartListBox.ItemsSource is not IEnumerable<BirthChartEntry> entries)
             {
-                MessageBox.Show("Create a chart first.", "Nyagrodha", MessageBoxButton.OK, MessageBoxImage.Information);
+                await ShowCopyStatusAsync("Create a chart first", isError: true);
                 return;
             }
 
@@ -234,11 +236,37 @@ public partial class MainWindow : Window
             }
 
             Clipboard.SetText(sb.ToString());
-            MessageBox.Show("Chart details copied as text.", "Nyagrodha", MessageBoxButton.OK, MessageBoxImage.Information);
+            await ShowCopyStatusAsync("Chart text copied");
         }
         catch (Exception ex)
         {
-            MessageBox.Show("Copy chart text failed: " + ex.Message, "Nyagrodha", MessageBoxButton.OK, MessageBoxImage.Error);
+            await ShowCopyStatusAsync("Copy text failed", isError: true);
+            System.Diagnostics.Debug.WriteLine("Copy chart text failed: " + ex);
+        }
+    }
+
+    private async Task ShowCopyStatusAsync(string message, bool isError = false)
+    {
+        if (CopyStatusText == null) return;
+
+        var original = CopyStatusText.Text;
+        CopyStatusText.Text = message;
+        CopyStatusText.Foreground = isError
+            ? new SolidColorBrush(Color.FromRgb(200, 40, 40))
+            : (Brush)FindResource("SecondaryTextBrush") ?? Brushes.Gray;
+
+        try
+        {
+            await Task.Delay(2000);
+        }
+        catch
+        {
+            // ignore
+        }
+
+        if (CopyStatusText.Text == message)
+        {
+            CopyStatusText.Text = original;
         }
     }
 

@@ -6,8 +6,10 @@
         xmlns:local="clr-namespace:VedicCharts"
         xmlns:controls="clr-namespace:VedicCharts.Controls"
         mc:Ignorable="d"
-        Title="Nyagrodha" Height="600" Width="700"
-        MinHeight="500" MinWidth="600">
+        Title="Nyagrodha" Height="600" Width="720"
+        MinHeight="520" MinWidth="640"
+        FontFamily="Segoe UI" FontSize="13"
+        Background="{DynamicResource WindowBackgroundBrush}">
     <DockPanel LastChildFill="True">
         <Menu DockPanel.Dock="Top">
             <MenuItem Header="_File">
@@ -27,7 +29,7 @@
 
             <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel>
-                    <GroupBox Header="Birth data" Padding="8" Margin="0,0,0,8">
+                    <GroupBox Header="Birth data" Padding="10" Margin="0,0,0,10">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
@@ -47,7 +49,7 @@
                         </Grid>
                     </GroupBox>
 
-                    <GroupBox Header="Birth place" Padding="8" Margin="0,0,0,8">
+                    <GroupBox Header="Birth place" Padding="10" Margin="0,0,0,10">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -70,7 +72,7 @@
                         </Grid>
                     </GroupBox>
 
-                    <GroupBox Header="Chart settings" Padding="8" Margin="0,0,0,8">
+                    <GroupBox Header="Chart settings" Padding="10" Margin="0,0,0,10">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
@@ -87,14 +89,22 @@
                         </Grid>
                     </GroupBox>
 
-                    <WrapPanel Margin="0,0,0,8">
-                        <Button x:Name="CalculateButton" Content="Create chart" Click="CalculateButton_Click" Padding="16,8" Margin="0,0,8,0" FontWeight="SemiBold"/>
-                        <Button Content="Clear" Click="ClearButton_Click" Padding="16,8"/>
+                    <WrapPanel Margin="0,4,0,8">
+                        <Button x:Name="CalculateButton"
+                                Style="{DynamicResource PrimaryButtonStyle}"
+                                Content="Create chart"
+                                Click="CalculateButton_Click"
+                                Padding="16,8"
+                                Margin="0,0,8,0"/>
+                        <Button Content="Clear"
+                                Style="{DynamicResource SecondaryButtonStyle}"
+                                Click="ClearButton_Click"
+                                Padding="16,8"/>
                     </WrapPanel>
                 </StackPanel>
             </ScrollViewer>
 
-            <GroupBox Grid.Column="2" Header="Output" Padding="8">
+            <GroupBox Grid.Column="2" Header="Output" Padding="10">
                 <TabControl>
                     <TabItem Header="Chart">
                         <Grid>
@@ -103,17 +113,33 @@
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
 
-                            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,4">
-                                <Button Content="Copy chart image"
+                            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6" VerticalAlignment="Center">
+                                <Button x:Name="CopyChartImageButton"
+                                        Style="{DynamicResource SecondaryButtonStyle}"
+                                        Content="Copy chart image"
                                         Click="CopyChartImageButton_Click"
-                                        Padding="12,4"
+                                        Padding="10,4"
                                         Margin="0,0,8,0"/>
-                                <Button Content="Copy chart as text"
+                                <Button x:Name="CopyChartTextButton"
+                                        Style="{DynamicResource SecondaryButtonStyle}"
+                                        Content="Copy chart as text"
                                         Click="CopyChartTextButton_Click"
-                                        Padding="12,4"/>
+                                        Padding="10,4"
+                                        Margin="0,0,12,0"/>
+                                <TextBlock x:Name="CopyStatusText"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource SecondaryTextBrush}"
+                                           FontSize="11"
+                                           Text=""/>
                             </StackPanel>
 
-                            <Border Grid.Row="1" BorderBrush="#22000000" BorderThickness="1" CornerRadius="6" Padding="8">
+                            <Border x:Name="ChartContainerBorder"
+                                    Grid.Row="1"
+                                    Background="{DynamicResource CardBackgroundBrush}"
+                                    BorderBrush="{DynamicResource CardBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="10">
                                 <controls:IndianChartControl x:Name="IndianChart"
                                                             ChartStyle="South" />
                             </Border>
