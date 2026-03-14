@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
@@ -14,6 +16,12 @@ using VedicCharts.Core;
 
 namespace VedicCharts;
 
+public enum AppMode
+{
+    SingleBirth,
+    BirthDatabase,
+}
+
 public partial class MainWindow : Window
 {
     private readonly PlacesRepository _places;
@@ -21,6 +29,13 @@ public partial class MainWindow : Window
 
     /// <summary>Stored after a successful calculation so slot combo changes can refresh that slot only.</summary>
     private (DateOnly date, int hours, int minutes, double lat, double lon, double offsetHours, string? ayanamsaId)? _lastCalculationParams;
+
+    // Birth database state
+    private AppMode _appMode = AppMode.SingleBirth;
+    private BirthDatabaseFile? _birthDatabase;
+    private string? _currentDatabasePath;
+    private int _selectedDatabaseIndex = -1;
+    private readonly ObservableCollection<BirthEntryDisplay> _databaseEntryDisplays = new();
 
     public MainWindow()
     {
@@ -393,6 +408,27 @@ public partial class MainWindow : Window
         }
     }
 
+    private void NewMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        SwitchToSingleMode();
+        ChartListBox.ItemsSource = null;
+        _lastCalculationParams = null;
+        foreach (var chart in new[] { IndianChartSlot0, IndianChartSlot1, IndianChartSlot2, IndianChartSlot3 })
+            chart.Houses = Array.Empty<HouseCell>();
+    }
+
+    private void NewDatabaseMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        _birthDatabase = new BirthDatabaseFile { Entries = new List<BirthDataFile>() };
+        _currentDatabasePath = null;
+        SwitchToDatabaseMode(null);
+        _selectedDatabaseIndex = -1;
+        ChartListBox.ItemsSource = null;
+        _lastCalculationParams = null;
+        foreach (var chart in new[] { IndianChartSlot0, IndianChartSlot1, IndianChartSlot2, IndianChartSlot3 })
+            chart.Houses = Array.Empty<HouseCell>();
+    }
+
     private void OpenMenuItem_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -400,62 +436,13 @@ public partial class MainWindow : Window
             var dlg = new OpenFileDialog
             {
                 Title = "Open birth data",
-                Filter = "Nyagrodha birth data (*.ny)|*.ny|JSON (*.json)|*.json|All files (*.*)|*.*",
+                Filter = "Nyagrodha birth data (*.ny)|*.ny|Nyagrodha birth database (*.nydb)|*.nydb|JSON (*.json)|*.json|All files (*.*)|*.*",
                 CheckFileExists = true,
                 Multiselect = false,
             };
             if (dlg.ShowDialog(this) != true) return;
 
-            var json = System.IO.File.ReadAllText(dlg.FileName);
-            var data = JsonSerializer.Deserialize<BirthDataFile>(json, new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true,
-            });
-            if (data == null) throw new System.Exception("File is empty or invalid JSON.");
-            if (string.IsNullOrWhiteSpace(data.StdTime)) throw new System.Exception("Missing StdTime.");
-
-            if (!TryParseStdTime(data.StdTime, out var date, out var hours, out var minutes, out var offsetHours))
-                throw new System.Exception("StdTime must be formatted like \"HH:mm dd/MM/yyyy zzz\".");
-
-            if (data.Location is null) throw new System.Exception("Missing Location.");
-            if (data.Location.Latitude is < -90 or > 90) throw new System.Exception("Invalid latitude.");
-            if (data.Location.Longitude is < -180 or > 180) throw new System.Exception("Invalid longitude.");
-
-            BirthDatePicker.SelectedDate = new System.DateTime(date.Year, date.Month, date.Day);
-            BirthTimeBox.Text = $"{hours:D2}:{minutes:D2}";
-
-            // Populate place list with the loaded location (no DB dependency)
-            var place = new Place(
-                Id: 0,
-                Name: data.Location.Name ?? "",
-                Country: data.Location.Country ?? "",
-                Latitude: data.Location.Latitude,
-                Longitude: data.Location.Longitude,
-                TimeZone: data.Location.TimeZone ?? "");
-
-            _selectedPlace = place;
-            PlaceSearchBox.Text = place.Name;
-            PlaceResultsList.ItemsSource = new[] { new PlaceDisplay(place) };
-            PlaceResultsList.SelectedIndex = 0;
-            CoordsText.Text = $"{place.Latitude:F4}, {place.Longitude:F4} ({place.TimeZone})";
-
-            // Restore chart settings (best-effort)
-            if (data.Chart != null)
-            {
-                ChartStyleCombo.SelectedItem = ((IEnumerable<ChartStyleItem>)ChartStyleCombo.ItemsSource)
-                    .FirstOrDefault(x => x.Id.ToString() == data.Chart.Style.ToString()) ?? ChartStyleCombo.SelectedItem;
-
-                var chartTypeItem = ((IEnumerable<ChartTypeItem>)ChartTypeCombo.ItemsSource)
-                    .FirstOrDefault(x => x.Id == data.Chart.ChartType);
-                ChartTypeCombo.SelectedItem = chartTypeItem ?? ChartTypeCombo.SelectedItem;
-                Slot0ChartTypeCombo.SelectedItem = chartTypeItem ?? Slot0ChartTypeCombo.SelectedItem;
-            }
-
-            // Keep calculation stable: if offset in StdTime differs from tz, we use the offset from StdTime.
-            // (The calculator already accepts explicit offset hours.)
-            _loadedOffsetOverrideHours = offsetHours;
-
-            ChartListBox.ItemsSource = null;
+            OpenFile(dlg.FileName);
         }
         catch (System.Exception ex)
         {
@@ -463,12 +450,237 @@ public partial class MainWindow : Window
         }
     }
 
+    private void OpenFile(string path)
+    {
+        var json = File.ReadAllText(path);
+        var isDbByPath = IsDatabasePath(path);
+        var isDbByContent = path.EndsWith(".json", StringComparison.OrdinalIgnoreCase) && IsDatabaseFormat(json);
+
+        if (isDbByPath || isDbByContent)
+        {
+            var db = JsonSerializer.Deserialize<BirthDatabaseFile>(json, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true,
+            });
+            if (db == null) throw new System.Exception("File is empty or invalid JSON.");
+            if (db.Entries == null || db.Entries.Count == 0)
+                throw new System.Exception("Birth database has no entries.");
+            foreach (var entry in db.Entries)
+                ValidateBirthDataFile(entry);
+
+            _birthDatabase = db;
+            SwitchToDatabaseMode(path);
+            DatabaseEntriesList.SelectedIndex = 0;
+            return;
+        }
+
+        // Single birth file
+        var data = JsonSerializer.Deserialize<BirthDataFile>(json, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+        });
+        if (data == null) throw new System.Exception("File is empty or invalid JSON.");
+        ValidateBirthDataFile(data);
+
+        SwitchToSingleMode();
+        ApplyBirthDataToForm(data);
+        ChartListBox.ItemsSource = null;
+    }
+
+    private static void ValidateBirthDataFile(BirthDataFile data)
+    {
+        if (string.IsNullOrWhiteSpace(data.StdTime)) throw new System.Exception("Missing StdTime.");
+        if (!TryParseStdTime(data.StdTime, out _, out _, out _, out _))
+            throw new System.Exception("StdTime must be formatted like \"HH:mm dd/MM/yyyy zzz\".");
+        if (data.Location is null) throw new System.Exception("Missing Location.");
+        if (data.Location.Latitude is < -90 or > 90) throw new System.Exception("Invalid latitude.");
+        if (data.Location.Longitude is < -180 or > 180) throw new System.Exception("Invalid longitude.");
+    }
+
+    private void ApplyBirthDataToForm(BirthDataFile data)
+    {
+        if (!TryParseStdTime(data.StdTime, out var date, out var hours, out var minutes, out var offsetHours))
+            return;
+        BirthDatePicker.SelectedDate = new DateTime(date.Year, date.Month, date.Day);
+        BirthTimeBox.Text = $"{hours:D2}:{minutes:D2}";
+
+        var place = new Place(
+            Id: 0,
+            Name: data.Location.Name ?? "",
+            Country: data.Location.Country ?? "",
+            Latitude: data.Location.Latitude,
+            Longitude: data.Location.Longitude,
+            TimeZone: data.Location.TimeZone ?? "");
+
+        _selectedPlace = place;
+        PlaceSearchBox.Text = place.Name;
+        PlaceResultsList.ItemsSource = new[] { new PlaceDisplay(place) };
+        PlaceResultsList.SelectedIndex = 0;
+        CoordsText.Text = $"{place.Latitude:F4}, {place.Longitude:F4} ({place.TimeZone})";
+
+        if (data.Chart != null)
+        {
+            ChartStyleCombo.SelectedItem = ((IEnumerable<ChartStyleItem>)ChartStyleCombo.ItemsSource)
+                .FirstOrDefault(x => x.Id.ToString() == data.Chart.Style.ToString()) ?? ChartStyleCombo.SelectedItem;
+            var chartTypeItem = ((IEnumerable<ChartTypeItem>)ChartTypeCombo.ItemsSource)
+                .FirstOrDefault(x => x.Id == data.Chart.ChartType);
+            ChartTypeCombo.SelectedItem = chartTypeItem ?? ChartTypeCombo.SelectedItem;
+            Slot0ChartTypeCombo.SelectedItem = chartTypeItem ?? Slot0ChartTypeCombo.SelectedItem;
+        }
+
+        _loadedOffsetOverrideHours = offsetHours;
+    }
+
+    /// <summary>Runs chart calculation from current form values. Returns true if calculation ran.</summary>
+    private bool RunChartCalculation()
+    {
+        if (!BirthDatePicker.SelectedDate.HasValue) return false;
+        if (!TryParseTime(BirthTimeBox.Text?.Trim() ?? "", out int hours, out int minutes)) return false;
+        if (_selectedPlace == null) return false;
+
+        var date = DateOnly.FromDateTime(BirthDatePicker.SelectedDate.Value);
+        var birthDateTime = new DateTime(date.Year, date.Month, date.Day, hours, minutes, 0);
+        double offsetHours = _loadedOffsetOverrideHours ?? TimeZoneHelper.GetOffsetHours(
+            _selectedPlace.TimeZone,
+            birthDateTime,
+            _selectedPlace.Longitude);
+        _loadedOffsetOverrideHours = null;
+
+        string? ayanamsaId = (AyanamsaCombo.SelectedItem as AyanamsaItem)?.Id;
+        var style = (ChartStyleCombo.SelectedItem as ChartStyleItem)?.Id ?? ChartStyle.South;
+        var chartStyle = style == ChartStyle.North ? Controls.ChartStyle.North : Controls.ChartStyle.South;
+
+        var entries = BirthChartCalculator.Calculate(
+            date,
+            (hours, minutes, 0),
+            _selectedPlace.Latitude,
+            _selectedPlace.Longitude,
+            offsetHours,
+            ayanamsaId);
+        ChartListBox.ItemsSource = entries;
+        _lastCalculationParams = (date, hours, minutes, _selectedPlace.Latitude, _selectedPlace.Longitude, offsetHours, ayanamsaId);
+
+        var slotCombos = new[] { Slot0ChartTypeCombo, Slot1ChartTypeCombo, Slot2ChartTypeCombo, Slot3ChartTypeCombo };
+        var slotCharts = new[] { IndianChartSlot0, IndianChartSlot1, IndianChartSlot2, IndianChartSlot3 };
+        for (int i = 0; i < 4; i++)
+        {
+            string chartTypeId = (slotCombos[i].SelectedItem as ChartTypeItem)?.Id ?? "RasiD1";
+            var chartData = BirthChartCalculator.CalculateChartData(
+                chartTypeId,
+                date,
+                (hours, minutes, 0),
+                _selectedPlace.Latitude,
+                _selectedPlace.Longitude,
+                offsetHours,
+                ayanamsaId);
+            slotCharts[i].ChartStyle = chartStyle;
+            slotCharts[i].Houses = chartData.Houses
+                .Select(h => new HouseCell(h.HouseNumber, h.SignName, h.Bodies))
+                .ToList();
+        }
+        ChartTypeCombo.SelectedItem = Slot0ChartTypeCombo.SelectedItem;
+        return true;
+    }
+
+    private void DatabaseEntriesList_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (_appMode != AppMode.BirthDatabase || _birthDatabase == null || DatabaseEntriesList?.SelectedItem is not BirthEntryDisplay display)
+            return;
+
+        // Save current form to the previously selected entry
+        if (_selectedDatabaseIndex >= 0 && _selectedDatabaseIndex < _birthDatabase.Entries.Count)
+        {
+            try
+            {
+                var current = GetCurrentBirthDataFileOrThrow();
+                _birthDatabase.Entries[_selectedDatabaseIndex] = current;
+                _databaseEntryDisplays[_selectedDatabaseIndex] = new BirthEntryDisplay(current);
+            }
+            catch
+            {
+                // Form invalid; don't overwrite
+            }
+        }
+
+        var newIndex = _databaseEntryDisplays.IndexOf(display);
+        _selectedDatabaseIndex = newIndex >= 0 ? newIndex : -1;
+        if (_selectedDatabaseIndex >= 0 && _selectedDatabaseIndex < _birthDatabase.Entries.Count)
+        {
+            ApplyBirthDataToForm(_birthDatabase.Entries[_selectedDatabaseIndex]);
+            RunChartCalculation();
+        }
+    }
+
+    private void AddDatabaseEntry_Click(object sender, RoutedEventArgs e)
+    {
+        if (_birthDatabase == null) return;
+        var defaults = new BirthDataFile
+        {
+            StdTime = "12:00 01/01/2000 +05:30",
+            Location = new BirthDataFile.BirthLocation
+            {
+                Name = "New entry",
+                Country = "",
+                Latitude = 0,
+                Longitude = 0,
+                TimeZone = "UTC",
+            },
+        };
+        _birthDatabase.Entries.Add(defaults);
+        _databaseEntryDisplays.Add(new BirthEntryDisplay(defaults));
+        DatabaseEntriesList.SelectedIndex = _databaseEntryDisplays.Count - 1;
+    }
+
+    private void RemoveDatabaseEntry_Click(object sender, RoutedEventArgs e)
+    {
+        if (_birthDatabase == null || _selectedDatabaseIndex < 0 || _selectedDatabaseIndex >= _birthDatabase.Entries.Count)
+            return;
+        _birthDatabase.Entries.RemoveAt(_selectedDatabaseIndex);
+        _databaseEntryDisplays.RemoveAt(_selectedDatabaseIndex);
+        _selectedDatabaseIndex = -1;
+        if (_birthDatabase.Entries.Count > 0)
+        {
+            DatabaseEntriesList.SelectedIndex = Math.Min(_databaseEntryDisplays.Count - 1, 0);
+        }
+        else
+        {
+            ChartListBox.ItemsSource = null;
+            foreach (var chart in new[] { IndianChartSlot0, IndianChartSlot1, IndianChartSlot2, IndianChartSlot3 })
+                chart.Houses = Array.Empty<HouseCell>();
+        }
+    }
+
     private void SaveMenuItem_Click(object sender, RoutedEventArgs e)
     {
         try
         {
+            if (_appMode == AppMode.BirthDatabase && _birthDatabase != null)
+            {
+                SyncCurrentFormToSelectedEntry();
+                var path = _currentDatabasePath;
+                if (string.IsNullOrEmpty(path))
+                {
+                    var dlg = new SaveFileDialog
+                    {
+                        Title = "Save birth database",
+                        Filter = "Nyagrodha birth database (*.nydb)|*.nydb|All files (*.*)|*.*",
+                        AddExtension = true,
+                        DefaultExt = ".nydb",
+                        FileName = "birth-database.nydb",
+                        OverwritePrompt = true,
+                    };
+                    if (dlg.ShowDialog(this) != true) return;
+                    path = dlg.FileName;
+                }
+                var json = JsonSerializer.Serialize(_birthDatabase, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(path, json);
+                _currentDatabasePath = path;
+                UpdateWindowTitle(path);
+                return;
+            }
+
             var current = GetCurrentBirthDataFileOrThrow();
-            var dlg = new SaveFileDialog
+            var dlgSingle = new SaveFileDialog
             {
                 Title = "Save birth data",
                 Filter = "Nyagrodha birth data (*.ny)|*.ny|All files (*.*)|*.*",
@@ -477,18 +689,94 @@ public partial class MainWindow : Window
                 FileName = "birth-data.ny",
                 OverwritePrompt = true,
             };
-            if (dlg.ShowDialog(this) != true) return;
+            if (dlgSingle.ShowDialog(this) != true) return;
 
-            var json = JsonSerializer.Serialize(current, new JsonSerializerOptions
-            {
-                WriteIndented = true,
-            });
-            System.IO.File.WriteAllText(dlg.FileName, json);
+            var jsonSingle = JsonSerializer.Serialize(current, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(dlgSingle.FileName, jsonSingle);
         }
         catch (System.Exception ex)
         {
             MessageBox.Show("Save failed: " + ex.Message, "Nyagrodha", MessageBoxButton.OK, MessageBoxImage.Error);
         }
+    }
+
+    private void SaveAsMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (_appMode == AppMode.BirthDatabase && _birthDatabase != null)
+            {
+                var dlg = new SaveFileDialog
+                {
+                    Title = "Save As",
+                    Filter = "Nyagrodha birth data (*.ny)|*.ny|Nyagrodha birth database (*.nydb)|*.nydb|All files (*.*)|*.*",
+                    AddExtension = true,
+                    DefaultExt = ".nydb",
+                    FileName = "birth-database.nydb",
+                    OverwritePrompt = true,
+                };
+                if (dlg.ShowDialog(this) != true) return;
+                SyncCurrentFormToSelectedEntry();
+                var ext = System.IO.Path.GetExtension(dlg.FileName);
+                if (string.Equals(ext, ".nydb", StringComparison.OrdinalIgnoreCase))
+                {
+                    var json = JsonSerializer.Serialize(_birthDatabase, new JsonSerializerOptions { WriteIndented = true });
+                    File.WriteAllText(dlg.FileName, json);
+                    _currentDatabasePath = dlg.FileName;
+                    UpdateWindowTitle(dlg.FileName);
+                }
+                else
+                {
+                    var one = _selectedDatabaseIndex >= 0 && _selectedDatabaseIndex < _birthDatabase.Entries.Count
+                        ? _birthDatabase.Entries[_selectedDatabaseIndex]
+                        : GetCurrentBirthDataFileOrThrow();
+                    var json = JsonSerializer.Serialize(one, new JsonSerializerOptions { WriteIndented = true });
+                    File.WriteAllText(dlg.FileName, json);
+                }
+                return;
+            }
+
+            var current = GetCurrentBirthDataFileOrThrow();
+            var dlgSingle = new SaveFileDialog
+            {
+                Title = "Save As",
+                Filter = "Nyagrodha birth data (*.ny)|*.ny|Nyagrodha birth database (*.nydb)|*.nydb|All files (*.*)|*.*",
+                AddExtension = true,
+                DefaultExt = ".ny",
+                FileName = "birth-data.ny",
+                OverwritePrompt = true,
+            };
+            if (dlgSingle.ShowDialog(this) != true) return;
+            var extSingle = System.IO.Path.GetExtension(dlgSingle.FileName);
+            if (string.Equals(extSingle, ".nydb", StringComparison.OrdinalIgnoreCase))
+            {
+                var db = new BirthDatabaseFile { Entries = new List<BirthDataFile> { current } };
+                var json = JsonSerializer.Serialize(db, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(dlgSingle.FileName, json);
+            }
+            else
+            {
+                var json = JsonSerializer.Serialize(current, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(dlgSingle.FileName, json);
+            }
+        }
+        catch (System.Exception ex)
+        {
+            MessageBox.Show("Save As failed: " + ex.Message, "Nyagrodha", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void SyncCurrentFormToSelectedEntry()
+    {
+        if (_appMode != AppMode.BirthDatabase || _birthDatabase == null || _selectedDatabaseIndex < 0 || _selectedDatabaseIndex >= _birthDatabase.Entries.Count)
+            return;
+        try
+        {
+            var current = GetCurrentBirthDataFileOrThrow();
+            _birthDatabase.Entries[_selectedDatabaseIndex] = current;
+            _databaseEntryDisplays[_selectedDatabaseIndex] = new BirthEntryDisplay(current);
+        }
+        catch { /* form invalid */ }
     }
 
     private void KeyboardShortcutsMenuItem_Click(object sender, RoutedEventArgs e)
@@ -513,6 +801,75 @@ public partial class MainWindow : Window
         public Place Place { get; }
         public string DisplayText => $"{Place.Name}, {Place.Country}";
         public PlaceDisplay(Place place) => Place = place;
+    }
+
+    /// <summary>Display wrapper for a birth database entry in the list.</summary>
+    private sealed class BirthEntryDisplay
+    {
+        public BirthDataFile Entry { get; }
+        public string DisplayText => !string.IsNullOrWhiteSpace(Entry.Name)
+            ? Entry.Name
+            : $"{Entry.StdTime} — {Entry.Location?.Name ?? "?"}";
+        public BirthEntryDisplay(BirthDataFile entry) => Entry = entry;
+    }
+
+    private static bool IsDatabasePath(string path)
+    {
+        return path.EndsWith(".nydb", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsDatabaseFormat(string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            return doc.RootElement.TryGetProperty("Entries", out var entries) && entries.ValueKind == JsonValueKind.Array;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private void SwitchToSingleMode()
+    {
+        _appMode = AppMode.SingleBirth;
+        _birthDatabase = null;
+        _currentDatabasePath = null;
+        _selectedDatabaseIndex = -1;
+        _databaseEntryDisplays.Clear();
+        if (DatabaseEntriesList != null)
+            DatabaseEntriesList.ItemsSource = null;
+        if (DatabaseModePanel != null)
+            DatabaseModePanel.Visibility = Visibility.Collapsed;
+        UpdateWindowTitle(null);
+    }
+
+    private void SwitchToDatabaseMode(string? path)
+    {
+        _appMode = AppMode.BirthDatabase;
+        _currentDatabasePath = path;
+        _databaseEntryDisplays.Clear();
+        if (_birthDatabase != null)
+        {
+            foreach (var e in _birthDatabase.Entries)
+                _databaseEntryDisplays.Add(new BirthEntryDisplay(e));
+        }
+        if (DatabaseModePanel != null)
+            DatabaseModePanel.Visibility = Visibility.Visible;
+        if (DatabaseEntriesList != null)
+            DatabaseEntriesList.ItemsSource = _databaseEntryDisplays;
+        UpdateWindowTitle(path);
+    }
+
+    private void UpdateWindowTitle(string? filePath)
+    {
+        if (string.IsNullOrEmpty(filePath))
+        {
+            Title = "Nyagrodha";
+            return;
+        }
+        Title = "Nyagrodha — " + System.IO.Path.GetFileName(filePath);
     }
 
     /// <summary>For Ayanamsa dropdown: Id is the value passed to calculator, DisplayText is shown in UI.</summary>

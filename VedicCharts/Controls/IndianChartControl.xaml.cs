@@ -205,55 +205,46 @@ internal sealed class NorthChartView
         _ => sign
     };
 
+    /// <summary>
+    /// North Indian chart: house positions are FIXED. Layout matches classic North Indian diamond:
+    /// Outer diamond + cross + inner square + 8 diagonals from outer corners to inner corners = 12 compartments.
+    /// H1 top triangle, H2 top-left, H3 left diamond, H4 bottom-left, H5 bottom triangle, H6 bottom-right,
+    /// H7 right diamond, H8 top-right, H9–H12 the four inner diamonds. Counter-clockwise from top.
+    /// </summary>
     public static NorthChartView FromHouses(IReadOnlyList<HouseCell> houses)
     {
-        // North Indian chart is sign-fixed like the South chart.
-        // We place signs in a conventional diamond layout and then
-        // attach the corresponding house/planets for each sign.
-        var signOrder = new[]
+        // Box size 120×72; position = (Canvas.Left, Canvas.Top) = (centerX - 60, centerY - 36).
+        // Centers chosen so each box sits inside its compartment (outer triangles, side trapezoids, inner triangles).
+        var positionByHouse = new Dictionary<int, (double X, double Y)>
         {
-            "Aries","Taurus","Gemini","Cancer",
-            "Leo","Virgo","Libra","Scorpio",
-            "Sagittarius","Capricorn","Aquarius","Pisces"
+            [1] = (150, 59),   // top centre triangle (kendra)
+            [2] = (100, 94),   // top-left trapezoid
+            [3] = (20, 174),   // left trapezoid (kendra)
+            [4] = (100, 254),  // bottom-left trapezoid
+            [5] = (150, 274),  // bottom centre triangle (kendra)
+            [6] = (200, 254),  // bottom-right trapezoid
+            [7] = (280, 174),   // right trapezoid (kendra)
+            [8] = (200, 94),   // top-right trapezoid
+            [9] = (87, 137),   // inner top-left diamond
+            [10] = (213, 137),  // inner top-right diamond
+            [11] = (213, 211),  // inner bottom-right diamond
+            [12] = (87, 211),   // inner bottom-left diamond
         };
-
-        // Approximate positions for each sign on a 420x420 canvas.
-        var positions = new Dictionary<string, (double X, double Y)>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["Aries"] = (210, 20),        // top
-            ["Taurus"] = (310, 80),       // upper-right
-            ["Gemini"] = (360, 210),      // right
-            ["Cancer"] = (310, 330),      // lower-right
-            ["Leo"] = (210, 380),         // bottom
-            ["Virgo"] = (110, 330),       // lower-left
-            ["Libra"] = (60, 210),        // left
-            ["Scorpio"] = (110, 80),      // upper-left
-            ["Sagittarius"] = (210, 115), // inner top
-            ["Capricorn"] = (275, 210),   // inner right
-            ["Aquarius"] = (210, 305),    // inner bottom
-            ["Pisces"] = (145, 210),      // inner left
-        };
-
-        var bySign = houses
-            .GroupBy(h => h.SignName)
-            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
         var view = new NorthChartView();
-        foreach (var sign in signOrder)
+        for (int houseNum = 1; houseNum <= 12; houseNum++)
         {
-            if (!positions.TryGetValue(sign, out var pos)) continue;
-            bySign.TryGetValue(sign, out var house);
-
-            var labelHouse = house?.HouseNumber.ToString() ?? "";
-            var planetsText = house is null ? "" : IndianChartControl.FormatBodies(house);
+            var house = houses?.FirstOrDefault(h => h.HouseNumber == houseNum);
+            if (!positionByHouse.TryGetValue(houseNum, out var pos))
+                continue;
 
             view.Cells.Add(new NorthCellVm
             {
                 X = pos.X,
                 Y = pos.Y,
-                HouseLabel = string.IsNullOrEmpty(labelHouse) ? "" : $"H{labelHouse}",
-                SignLabel = ShortSign(sign),
-                PlanetsText = planetsText,
+                HouseLabel = $"H{houseNum}",
+                SignLabel = house != null ? ShortSign(house.SignName) : "",
+                PlanetsText = house != null ? IndianChartControl.FormatBodies(house) : "",
             });
         }
 

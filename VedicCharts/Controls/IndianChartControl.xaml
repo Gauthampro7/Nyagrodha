@@ -74,16 +74,28 @@
 
                         <DataTemplate DataType="{x:Type local:NorthChartView}">
                             <Grid>
-                                <!-- Diamond frame -->
+                                <!-- North Indian diamond: outer diamond, cross, inner square, diagonals to inner corners -->
                                 <Canvas Width="420" Height="420">
+                                    <!-- Outer diamond (square rotated 45°) -->
                                     <Polygon Points="210,10 410,210 210,410 10,210"
-                                             Stroke="#33000000"
-                                             StrokeThickness="2"
-                                             Fill="Transparent"/>
+                                             Stroke="#33000000" StrokeThickness="2" Fill="Transparent"/>
+                                    <!-- Cross through centre: vertical and horizontal -->
                                     <Line X1="210" Y1="10" X2="210" Y2="410" Stroke="#33000000" StrokeThickness="1"/>
                                     <Line X1="10" Y1="210" X2="410" Y2="210" Stroke="#33000000" StrokeThickness="1"/>
-                                    <Line X1="110" Y1="110" X2="310" Y2="310" Stroke="#33000000" StrokeThickness="1"/>
-                                    <Line X1="310" Y1="110" X2="110" Y2="310" Stroke="#33000000" StrokeThickness="1"/>
+                                    <!-- Inner square (edge midpoints of outer diamond) -->
+                                    <Line X1="110" Y1="110" X2="310" Y2="110" Stroke="#33000000" StrokeThickness="1"/>
+                                    <Line X1="310" Y1="110" X2="310" Y2="310" Stroke="#33000000" StrokeThickness="1"/>
+                                    <Line X1="310" Y1="310" X2="110" Y2="310" Stroke="#33000000" StrokeThickness="1"/>
+                                    <Line X1="110" Y1="310" X2="110" Y2="110" Stroke="#33000000" StrokeThickness="1"/>
+                                    <!-- Diagonals from outer corners to inner corners -->
+                                    <Line X1="210" Y1="10" X2="110" Y2="110" Stroke="#33000000" StrokeThickness="1"/>
+                                    <Line X1="210" Y1="10" X2="310" Y2="110" Stroke="#33000000" StrokeThickness="1"/>
+                                    <Line X1="410" Y1="210" X2="310" Y2="110" Stroke="#33000000" StrokeThickness="1"/>
+                                    <Line X1="410" Y1="210" X2="310" Y2="310" Stroke="#33000000" StrokeThickness="1"/>
+                                    <Line X1="210" Y1="410" X2="310" Y2="310" Stroke="#33000000" StrokeThickness="1"/>
+                                    <Line X1="210" Y1="410" X2="110" Y2="310" Stroke="#33000000" StrokeThickness="1"/>
+                                    <Line X1="10" Y1="210" X2="110" Y2="310" Stroke="#33000000" StrokeThickness="1"/>
+                                    <Line X1="10" Y1="210" X2="110" Y2="110" Stroke="#33000000" StrokeThickness="1"/>
                                 </Canvas>
 
                                 <ItemsControl ItemsSource="{Binding Cells}">

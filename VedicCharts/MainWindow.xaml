@@ -13,8 +13,12 @@
     <DockPanel LastChildFill="True">
         <Menu DockPanel.Dock="Top">
             <MenuItem Header="_File">
+                <MenuItem Header="_New" Click="NewMenuItem_Click" />
+                <MenuItem Header="New _database" Click="NewDatabaseMenuItem_Click" />
+                <Separator/>
                 <MenuItem Header="_Open…" Click="OpenMenuItem_Click" />
-                <MenuItem Header="_Save…" Click="SaveMenuItem_Click" />
+                <MenuItem Header="_Save" Click="SaveMenuItem_Click" />
+                <MenuItem Header="Save _As…" Click="SaveAsMenuItem_Click" />
                 <Separator/>
                 <MenuItem Header="E_xit" Click="ExitMenuItem_Click" />
             </MenuItem>
@@ -32,6 +36,16 @@
 
             <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel>
+                    <StackPanel x:Name="DatabaseModePanel" Visibility="Collapsed" Margin="0,0,0,10">
+                        <TextBlock Text="Birth database" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                        <ListBox x:Name="DatabaseEntriesList" MaxHeight="160" Margin="0,0,0,6"
+                                 DisplayMemberPath="DisplayText"
+                                 SelectionChanged="DatabaseEntriesList_SelectionChanged"/>
+                        <WrapPanel>
+                            <Button Content="Add entry" Style="{DynamicResource SecondaryButtonStyle}" Padding="10,4" Margin="0,0,8,0" Click="AddDatabaseEntry_Click"/>
+                            <Button Content="Remove entry" Style="{DynamicResource SecondaryButtonStyle}" Padding="10,4" Click="RemoveDatabaseEntry_Click"/>
+                        </WrapPanel>
+                    </StackPanel>
                     <Expander x:Name="BirthDataExpander" Header="Birth data" IsExpanded="True" Padding="10" Margin="0,0,0,10">
                         <Grid>
                             <Grid.ColumnDefinitions>
