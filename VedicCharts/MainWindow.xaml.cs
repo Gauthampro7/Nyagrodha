@@ -19,6 +19,9 @@ public partial class MainWindow : Window
     private readonly PlacesRepository _places;
     private Place? _selectedPlace;
 
+    /// <summary>Stored after a successful calculation so slot combo changes can refresh that slot only.</summary>
+    private (DateOnly date, int hours, int minutes, double lat, double lon, double offsetHours, string? ayanamsaId)? _lastCalculationParams;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -39,6 +42,8 @@ public partial class MainWindow : Window
         ChartTypeCombo.ItemsSource = ChartTypeItem.All;
         ChartTypeCombo.SelectedIndex = 0;
 
+        InitSlotCombos();
+
         AyanamsaCombo.ItemsSource = new[]
         {
             new AyanamsaItem { Id = "Lahiri", DisplayText = "Lahiri (Chitra Paksha)" },
@@ -49,6 +54,81 @@ public partial class MainWindow : Window
         };
         AyanamsaCombo.SelectedIndex = 0;
         Loaded += MainWindow_Loaded;
+
+        RegisterKeyboardShortcuts();
+    }
+
+    private void RegisterKeyboardShortcuts()
+    {
+        var createChartCmd = new RoutedCommand("CreateChart", typeof(MainWindow));
+        CommandBindings.Add(new CommandBinding(createChartCmd, (s, e) => CalculateButton_Click(s, e)));
+        InputBindings.Add(new KeyBinding(createChartCmd, Key.Enter, ModifierKeys.Control));
+
+        var clearCmd = new RoutedCommand("Clear", typeof(MainWindow));
+        CommandBindings.Add(new CommandBinding(clearCmd, (s, e) => ClearButton_Click(s, e)));
+        InputBindings.Add(new KeyBinding(clearCmd, Key.C, ModifierKeys.Control | ModifierKeys.Shift));
+        InputBindings.Add(new KeyBinding(clearCmd, Key.Escape, ModifierKeys.None));
+
+        var copyImageCmd = new RoutedCommand("CopyChartImage", typeof(MainWindow));
+        CommandBindings.Add(new CommandBinding(copyImageCmd, (s, e) => CopyChartImageButton_Click(s, e)));
+        InputBindings.Add(new KeyBinding(copyImageCmd, Key.I, ModifierKeys.Control | ModifierKeys.Shift));
+
+        var copyTextCmd = new RoutedCommand("CopyChartText", typeof(MainWindow));
+        CommandBindings.Add(new CommandBinding(copyTextCmd, (s, e) => CopyChartTextButton_Click(s, e)));
+        InputBindings.Add(new KeyBinding(copyTextCmd, Key.T, ModifierKeys.Control | ModifierKeys.Shift));
+
+        var styleSouthCmd = new RoutedCommand("StyleSouth", typeof(MainWindow));
+        CommandBindings.Add(new CommandBinding(styleSouthCmd, (s, e) => { ChartStyleCombo.SelectedIndex = 0; }));
+        InputBindings.Add(new KeyBinding(styleSouthCmd, Key.D1, ModifierKeys.Control));
+
+        var styleNorthCmd = new RoutedCommand("StyleNorth", typeof(MainWindow));
+        CommandBindings.Add(new CommandBinding(styleNorthCmd, (s, e) => { ChartStyleCombo.SelectedIndex = 1; }));
+        InputBindings.Add(new KeyBinding(styleNorthCmd, Key.D2, ModifierKeys.Control));
+
+        for (int i = 0; i < Math.Min(9, ChartTypeItem.All.Count); i++)
+        {
+            int index = i;
+            var cmd = new RoutedCommand($"ChartType{index}", typeof(MainWindow));
+            CommandBindings.Add(new CommandBinding(cmd, (s, e) =>
+            {
+                ChartTypeCombo.SelectedIndex = index;
+                Slot0ChartTypeCombo.SelectedIndex = index;
+                if (_lastCalculationParams is { } p)
+                {
+                    var item = ChartTypeItem.All[index];
+                    var chartData = BirthChartCalculator.CalculateChartData(item.Id, p.date, (p.hours, p.minutes, 0), p.lat, p.lon, p.offsetHours, p.ayanamsaId);
+                    var style = (ChartStyleCombo.SelectedItem as ChartStyleItem)?.Id ?? ChartStyle.South;
+                    IndianChartSlot0.ChartStyle = style == ChartStyle.North ? Controls.ChartStyle.North : Controls.ChartStyle.South;
+                    IndianChartSlot0.Houses = chartData.Houses.Select(h => new HouseCell(h.HouseNumber, h.SignName, h.Bodies)).ToList();
+                }
+            }));
+            InputBindings.Add(new KeyBinding(cmd, Key.D1 + index, ModifierKeys.Control | ModifierKeys.Alt));
+        }
+
+        var ayanamsaFocusCmd = new RoutedCommand("AyanamsaFocus", typeof(MainWindow));
+        CommandBindings.Add(new CommandBinding(ayanamsaFocusCmd, (s, e) => { AyanamsaCombo.Focus(); AyanamsaCombo.IsDropDownOpen = true; }));
+        InputBindings.Add(new KeyBinding(ayanamsaFocusCmd, Key.A, ModifierKeys.Alt));
+    }
+
+    private void InitSlotCombos()
+    {
+        var all = ChartTypeItem.All;
+        foreach (var combo in new[] { Slot0ChartTypeCombo, Slot1ChartTypeCombo, Slot2ChartTypeCombo, Slot3ChartTypeCombo })
+        {
+            combo.ItemsSource = all;
+        }
+        Slot0ChartTypeCombo.SelectedIndex = 0;   // D1 Rasi
+        Slot1ChartTypeCombo.SelectedIndex = IndexOfChartType("NavamshaD9");   // D9
+        Slot2ChartTypeCombo.SelectedIndex = IndexOfChartType("SaptamshaD7");   // D7
+        Slot3ChartTypeCombo.SelectedIndex = IndexOfChartType("ChaturthamshaD4"); // D4
+    }
+
+    private static int IndexOfChartType(string id)
+    {
+        var all = ChartTypeItem.All;
+        for (int i = 0; i < all.Count; i++)
+            if (all[i].Id == id) return i;
+        return 0;
     }
 
     private void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -137,8 +217,8 @@ public partial class MainWindow : Window
             _loadedOffsetOverrideHours = null;
 
             string? ayanamsaId = (AyanamsaCombo.SelectedItem as AyanamsaItem)?.Id;
-            string chartTypeId = (ChartTypeCombo.SelectedItem as ChartTypeItem)?.Id ?? "RasiD1";
             var style = (ChartStyleCombo.SelectedItem as ChartStyleItem)?.Id ?? ChartStyle.South;
+            var chartStyle = style == ChartStyle.North ? Controls.ChartStyle.North : Controls.ChartStyle.South;
 
             var entries = BirthChartCalculator.Calculate(
                 date,
@@ -150,19 +230,31 @@ public partial class MainWindow : Window
 
             ChartListBox.ItemsSource = entries;
 
-            var chartData = BirthChartCalculator.CalculateChartData(
-                chartTypeId,
-                date,
-                (hours, minutes, 0),
-                _selectedPlace.Latitude,
-                _selectedPlace.Longitude,
-                offsetHours,
-                ayanamsaId);
+            _lastCalculationParams = (date, hours, minutes, _selectedPlace.Latitude, _selectedPlace.Longitude, offsetHours, ayanamsaId);
 
-            IndianChart.ChartStyle = style == ChartStyle.North ? Controls.ChartStyle.North : Controls.ChartStyle.South;
-            IndianChart.Houses = chartData.Houses
-                .Select(h => new HouseCell(h.HouseNumber, h.SignName, h.Bodies))
-                .ToList();
+            var slotCombos = new[] { Slot0ChartTypeCombo, Slot1ChartTypeCombo, Slot2ChartTypeCombo, Slot3ChartTypeCombo };
+            var slotCharts = new[] { IndianChartSlot0, IndianChartSlot1, IndianChartSlot2, IndianChartSlot3 };
+            for (int i = 0; i < 4; i++)
+            {
+                string chartTypeId = (slotCombos[i].SelectedItem as ChartTypeItem)?.Id ?? "RasiD1";
+                var chartData = BirthChartCalculator.CalculateChartData(
+                    chartTypeId,
+                    date,
+                    (hours, minutes, 0),
+                    _selectedPlace.Latitude,
+                    _selectedPlace.Longitude,
+                    offsetHours,
+                    ayanamsaId);
+                slotCharts[i].ChartStyle = chartStyle;
+                slotCharts[i].Houses = chartData.Houses
+                    .Select(h => new HouseCell(h.HouseNumber, h.SignName, h.Bodies))
+                    .ToList();
+            }
+
+            ChartTypeCombo.SelectedItem = Slot0ChartTypeCombo.SelectedItem;
+
+            BirthDataExpander.IsExpanded = false;
+            BirthPlaceExpander.IsExpanded = false;
         }
         catch (System.Exception ex)
         {
@@ -182,10 +274,41 @@ public partial class MainWindow : Window
         return true;
     }
 
+    private void SlotChartType_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (_lastCalculationParams is not { } p || sender is not System.Windows.Controls.ComboBox combo)
+            return;
+        var slotCharts = new[] { IndianChartSlot0, IndianChartSlot1, IndianChartSlot2, IndianChartSlot3 };
+        var slotCombos = new[] { Slot0ChartTypeCombo, Slot1ChartTypeCombo, Slot2ChartTypeCombo, Slot3ChartTypeCombo };
+        int index = -1;
+        for (int i = 0; i < 4; i++)
+            if (slotCombos[i] == combo) { index = i; break; }
+        if (index < 0 || combo.SelectedItem is not ChartTypeItem item) return;
+
+        var chartData = BirthChartCalculator.CalculateChartData(
+            item.Id,
+            p.date,
+            (p.hours, p.minutes, 0),
+            p.lat,
+            p.lon,
+            p.offsetHours,
+            p.ayanamsaId);
+        var style = (ChartStyleCombo.SelectedItem as ChartStyleItem)?.Id ?? ChartStyle.South;
+        var chartStyle = style == ChartStyle.North ? Controls.ChartStyle.North : Controls.ChartStyle.South;
+        slotCharts[index].ChartStyle = chartStyle;
+        slotCharts[index].Houses = chartData.Houses
+            .Select(h => new HouseCell(h.HouseNumber, h.SignName, h.Bodies))
+            .ToList();
+        if (index == 0)
+            ChartTypeCombo.SelectedItem = combo.SelectedItem;
+    }
+
     private void ClearButton_Click(object sender, RoutedEventArgs e)
     {
         ChartListBox.ItemsSource = null;
-        IndianChart.Houses = Array.Empty<HouseCell>();
+        _lastCalculationParams = null;
+        foreach (var chart in new[] { IndianChartSlot0, IndianChartSlot1, IndianChartSlot2, IndianChartSlot3 })
+            chart.Houses = Array.Empty<HouseCell>();
         PlaceResultsList.SelectedItem = null;
         _selectedPlace = null;
         CoordsText.Text = "—";
@@ -322,8 +445,10 @@ public partial class MainWindow : Window
                 ChartStyleCombo.SelectedItem = ((IEnumerable<ChartStyleItem>)ChartStyleCombo.ItemsSource)
                     .FirstOrDefault(x => x.Id.ToString() == data.Chart.Style.ToString()) ?? ChartStyleCombo.SelectedItem;
 
-                ChartTypeCombo.SelectedItem = ((IEnumerable<ChartTypeItem>)ChartTypeCombo.ItemsSource)
-                    .FirstOrDefault(x => x.Id == data.Chart.ChartType) ?? ChartTypeCombo.SelectedItem;
+                var chartTypeItem = ((IEnumerable<ChartTypeItem>)ChartTypeCombo.ItemsSource)
+                    .FirstOrDefault(x => x.Id == data.Chart.ChartType);
+                ChartTypeCombo.SelectedItem = chartTypeItem ?? ChartTypeCombo.SelectedItem;
+                Slot0ChartTypeCombo.SelectedItem = chartTypeItem ?? Slot0ChartTypeCombo.SelectedItem;
             }
 
             // Keep calculation stable: if offset in StdTime differs from tz, we use the offset from StdTime.
@@ -364,6 +489,21 @@ public partial class MainWindow : Window
         {
             MessageBox.Show("Save failed: " + ex.Message, "Nyagrodha", MessageBoxButton.OK, MessageBoxImage.Error);
         }
+    }
+
+    private void KeyboardShortcutsMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        var chartTypeLines = string.Join("\n", ChartTypeItem.All.Take(9).Select((item, i) =>
+            $"  Ctrl+Alt+{i + 1}  {item.DisplayText}"));
+        var msg = "Create chart\tCtrl+Enter\n" +
+                  "Clear\tCtrl+Shift+C or Escape\n" +
+                  "Copy chart image\tCtrl+Shift+I\n" +
+                  "Copy chart as text\tCtrl+Shift+T\n" +
+                  "Chart style: South\tCtrl+1\n" +
+                  "Chart style: North\tCtrl+2\n" +
+                  "Chart type (first 9):\n" + chartTypeLines + "\n" +
+                  "Ayanamsa dropdown\tAlt+A";
+        MessageBox.Show(msg, "Keyboard shortcuts", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
     private void ExitMenuItem_Click(object sender, RoutedEventArgs e) => Close();
@@ -448,7 +588,7 @@ public partial class MainWindow : Window
         string stdTime = $"{hours:D2}:{minutes:D2} {date.Day:D2}/{date.Month:D2}/{date.Year} {offsetStr}";
 
         var style = (ChartStyleCombo.SelectedItem as ChartStyleItem)?.Id ?? ChartStyle.South;
-        var chartType = (ChartTypeCombo.SelectedItem as ChartTypeItem)?.Id ?? "RasiD1";
+        var chartType = (Slot0ChartTypeCombo.SelectedItem as ChartTypeItem)?.Id ?? "RasiD1";
 
         return new BirthDataFile
         {

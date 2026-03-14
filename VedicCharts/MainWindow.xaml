@@ -18,6 +18,9 @@
                 <Separator/>
                 <MenuItem Header="E_xit" Click="ExitMenuItem_Click" />
             </MenuItem>
+            <MenuItem Header="_Help">
+                <MenuItem Header="Keyboard _shortcuts" Click="KeyboardShortcutsMenuItem_Click" />
+            </MenuItem>
         </Menu>
 
         <Grid Margin="12">
@@ -29,7 +32,7 @@
 
             <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel>
-                    <GroupBox Header="Birth data" Padding="10" Margin="0,0,0,10">
+                    <Expander x:Name="BirthDataExpander" Header="Birth data" IsExpanded="True" Padding="10" Margin="0,0,0,10">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
@@ -47,9 +50,9 @@
                             <TextBlock Text="Ayanamsa:" Grid.Row="2" VerticalAlignment="Center" Margin="0,0,8,0"/>
                             <ComboBox x:Name="AyanamsaCombo" Grid.Row="2" Grid.Column="1" Padding="4,2" MinWidth="180" IsReadOnly="True" DisplayMemberPath="DisplayText"/>
                         </Grid>
-                    </GroupBox>
+                    </Expander>
 
-                    <GroupBox Header="Birth place" Padding="10" Margin="0,0,0,10">
+                    <Expander x:Name="BirthPlaceExpander" Header="Birth place" IsExpanded="True" Padding="10" Margin="0,0,0,10">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -70,7 +73,7 @@
                             <TextBlock x:Name="CoordsText" Grid.Row="2" Grid.Column="1" VerticalAlignment="Center" Text="—" Foreground="Gray" TextWrapping="Wrap" />
                             <TextBlock x:Name="LocationDbCue" Grid.Row="3" Grid.ColumnSpan="2" Margin="0,6,0,0" FontSize="11" Foreground="#888" Text="" />
                         </Grid>
-                    </GroupBox>
+                    </Expander>
 
                     <GroupBox Header="Chart settings" Padding="10" Margin="0,0,0,10">
                         <Grid>
@@ -92,11 +95,11 @@
                     <WrapPanel Margin="0,4,0,8">
                         <Button x:Name="CalculateButton"
                                 Style="{DynamicResource PrimaryButtonStyle}"
-                                Content="Create chart"
+                                Content="Create chart (Ctrl+Enter)"
                                 Click="CalculateButton_Click"
                                 Padding="16,8"
                                 Margin="0,0,8,0"/>
-                        <Button Content="Clear"
+                        <Button Content="Clear (Ctrl+Shift+C)"
                                 Style="{DynamicResource SecondaryButtonStyle}"
                                 Click="ClearButton_Click"
                                 Padding="16,8"/>
@@ -133,15 +136,68 @@
                                            Text=""/>
                             </StackPanel>
 
-                            <Border x:Name="ChartContainerBorder"
-                                    Grid.Row="1"
+                            <Border x:Name="ChartContainerBorder" Grid.Row="1"
                                     Background="{DynamicResource CardBackgroundBrush}"
                                     BorderBrush="{DynamicResource CardBorderBrush}"
                                     BorderThickness="1"
                                     CornerRadius="8"
                                     Padding="10">
-                                <controls:IndianChartControl x:Name="IndianChart"
-                                                            ChartStyle="South" />
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="6"/>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="6"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <Border Grid.Row="0" Grid.Column="0" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="4" Padding="6" Margin="0,0,2,2">
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="*"/>
+                                            </Grid.RowDefinitions>
+                                            <ComboBox x:Name="Slot0ChartTypeCombo" Grid.Row="0" Margin="0,0,0,4" MinWidth="140" IsReadOnly="True" DisplayMemberPath="DisplayText" SelectionChanged="SlotChartType_SelectionChanged"/>
+                                            <controls:IndianChartControl x:Name="IndianChartSlot0" Grid.Row="1" ChartStyle="South"/>
+                                        </Grid>
+                                    </Border>
+                                    <GridSplitter Grid.Row="0" Grid.Column="1" Width="6" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Grid.RowSpan="3" Background="Transparent" ShowsPreview="False" ResizeDirection="Columns"/>
+                                    <Border Grid.Row="0" Grid.Column="2" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="4" Padding="6" Margin="2,0,0,2">
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="*"/>
+                                            </Grid.RowDefinitions>
+                                            <ComboBox x:Name="Slot1ChartTypeCombo" Grid.Row="0" Margin="0,0,0,4" MinWidth="140" IsReadOnly="True" DisplayMemberPath="DisplayText" SelectionChanged="SlotChartType_SelectionChanged"/>
+                                            <controls:IndianChartControl x:Name="IndianChartSlot1" Grid.Row="1" ChartStyle="South"/>
+                                        </Grid>
+                                    </Border>
+
+                                    <GridSplitter Grid.Row="1" Grid.Column="0" Height="6" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Grid.ColumnSpan="3" Background="Transparent" ShowsPreview="False" ResizeDirection="Rows"/>
+                                    <Border Grid.Row="2" Grid.Column="0" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="4" Padding="6" Margin="0,2,2,0">
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="*"/>
+                                            </Grid.RowDefinitions>
+                                            <ComboBox x:Name="Slot2ChartTypeCombo" Grid.Row="0" Margin="0,0,0,4" MinWidth="140" IsReadOnly="True" DisplayMemberPath="DisplayText" SelectionChanged="SlotChartType_SelectionChanged"/>
+                                            <controls:IndianChartControl x:Name="IndianChartSlot2" Grid.Row="1" ChartStyle="South"/>
+                                        </Grid>
+                                    </Border>
+                                    <Border Grid.Row="2" Grid.Column="2" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="4" Padding="6" Margin="2,2,0,0">
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="*"/>
+                                            </Grid.RowDefinitions>
+                                            <ComboBox x:Name="Slot3ChartTypeCombo" Grid.Row="0" Margin="0,0,0,4" MinWidth="140" IsReadOnly="True" DisplayMemberPath="DisplayText" SelectionChanged="SlotChartType_SelectionChanged"/>
+                                            <controls:IndianChartControl x:Name="IndianChartSlot3" Grid.Row="1" ChartStyle="South"/>
+                                        </Grid>
+                                    </Border>
+                                </Grid>
                             </Border>
                         </Grid>
                     </TabItem>
