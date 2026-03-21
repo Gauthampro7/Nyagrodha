@@ -40,13 +40,7 @@ The solution file is `VedicCharts.slnx` (SDK-style solution). It references only
 
 ## Birth data format
 
-Saved `.ny` files are JSON. They store person name, birth date/time, and place (with timezone), in a shape compatible with the core calculator and the MAUI/Blazor front ends in **VedAstroRepo** (if used).
-
-## Other folders
-
-- **VedAstroRepo** — Separate solution (API, MAUI Desktop, Website, etc.); may use the same birth-data format.
-- **ReflectVedAstro** — Blazor/desktop experiment.
-- **vedastro-extract** — Supporting or extracted assets.
+Saved `.ny` files are JSON. They store person name, birth date/time, and place (with timezone), in a shape compatible with the core calculator.
 
 ## License
 
